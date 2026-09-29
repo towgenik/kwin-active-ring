@@ -149,6 +149,17 @@ function createTracker(env, geom) {
         return false;
     }
 
+    // Keep our border windows out of the task manager, pager, Alt+Tab
+    // and Overview (adapted from HyprKwin's hideOverlay).
+    function hideOverlay(w) {
+        if (!w || !isOverlay(w)) return;
+        try { if (!w.skipTaskbar) w.skipTaskbar = true; } catch (e) {}
+        try { if (!w.skipPager) w.skipPager = true; } catch (e) {}
+        try { if (!w.skipSwitcher) w.skipSwitcher = true; } catch (e) {}
+        // KWin decorates script windows despite FramelessWindowHint, which
+        // forces a thin strip up to the decoration's minimum size.
+        try { if (!w.noBorder) w.noBorder = true; } catch (e) {}
+    }
     function ruleNoBorder(w) {
         void w;
         return false; // v1 has no window rules; reserved for later.
@@ -254,7 +265,8 @@ function createTracker(env, geom) {
     }
 
     function onWindowAdded(w) {
-        if (!w || isOverlay(w)) return;
+        if (!w) return;
+        if (isOverlay(w)) { hideOverlay(w); return; }
         connectWindow(w);
         log("track", w.caption);
         schedule();
@@ -280,7 +292,9 @@ function createTracker(env, geom) {
         if (ws.screensChanged) listen(ws.screensChanged, function () { schedule(); });
         var existing = allWindows();
         for (var i = 0; i < existing.length; i++) {
-            if (existing[i] && !isOverlay(existing[i])) connectWindow(existing[i]);
+            if (!existing[i]) continue;
+            if (isOverlay(existing[i])) { hideOverlay(existing[i]); continue; }
+            connectWindow(existing[i]);
         }
         log("started");
         schedule();
