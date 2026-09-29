@@ -109,7 +109,12 @@ function createTracker(env, geom) {
 
     function kwinVisible(w) {
         if (w.minimized || w.deleted) return false;
-        if (!w.visible) return false;
+        // Only trust an explicit false. On Plasma 6.6 the wrapper reports
+        // `visible` as undefined for some windows, and reading that as
+        // "hidden" made every window above look invisible, so the
+        // coveredAbove() cull never fired and rings were painted across
+        // whatever floated on top of them.
+        try { if (w.visible === false) return false; } catch (e) { /* not reported */ }
         return true;
     }
 
@@ -288,7 +293,7 @@ function createTracker(env, geom) {
             if (hidden) continue;
             // Overlays are drawn above everything, so a window stacked
             // over this one must not have the border painted across it.
-            if (coveredAbove(w, outer, band)) {
+            if (coveredAbove(w, outer, band, isActive)) {
                 log("border hidden behind a window above", w.caption);
                 continue;
             }
