@@ -139,8 +139,20 @@ function createTracker(env, geom) {
         return out;
     }
 
+    // The focused window's ring is a single reused overlay set, so it is
+    // created at most once. A frosted or translucent window raised above
+    // another still lets that ring show through: covering it would need a
+    // render pass, so the ring is hidden while any window above is at least
+    // partly translucent rather than painted over it.
+    function isTranslucent(w) {
+        try {
+            if (w.opacity < 0.999) return true;
+        } catch (e) { /* property missing */ }
+        return false;
+    }
+
     // Whether a window stacked above `w` crosses the ring its border occupies.
-    function coveredAbove(w, outer, thickness) {
+    function coveredAbove(w, outer, thickness, focusRing) {
         var order = ws.stackingOrder || [];
         var i = 0;
         while (i < order.length && order[i] !== w) i++;
@@ -150,7 +162,11 @@ function createTracker(env, geom) {
             if (o.desktopWindow || o.dock || o.popupWindow) continue;
             if (!(o.normalWindow || o.dialog || o.utility || o.notification || o.criticalNotification)) continue;
             if (!kwinVisible(o) || !onCurrentActivity(o)) continue;
-            if (geom.crossesBand(copyRect(o.frameGeometry), outer, thickness)) return true;
+            if (!geom.crossesBand(copyRect(o.frameGeometry), outer, thickness)) continue;
+            // The focused ring is drawn above everything, so anything
+            // translucent above it would show it through: drop the ring.
+            if (focusRing && isTranslucent(o)) return true;
+            return true;
         }
         return false;
     }
