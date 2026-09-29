@@ -31,6 +31,12 @@ function createTracker(env, geom) {
     var cfg = {};
     var stopped = false;
     var connected = [];
+    // Signature of the last applied border list. check() rebuilds the list
+    // on a timer and only pushes it when something actually changed — the
+    // same pattern as HyprKwin's checkAreas(): any state an event missed
+    // (a desktop switch racing activation, a window moved away silently)
+    // heals on the next tick instead of persisting indefinitely.
+    var lastSig = "";
 
     function log() {
         if (!cfg.debug) return;
@@ -168,11 +174,35 @@ function createTracker(env, geom) {
     function update() {
         if (stopped) return;
         vlog("update");
-        var list = [];
         if (cfg.borderSize <= 0) {
-            env.ui.setBorders(list, cfg);
+            applyList([]);
             return;
         }
+        applyList(buildList());
+    }
+
+    // Timer entry: re-derive the list and push only on change.
+    function check() {
+        if (stopped) return;
+        if (cfg.borderSize <= 0) {
+            if (lastSig !== "[]") applyList([]);
+            return;
+        }
+        var list = buildList();
+        var sig = geom.listSig(list);
+        if (sig !== lastSig) {
+            log("borders changed under us, re-applying");
+            applyList(list);
+        }
+    }
+
+    function applyList(list) {
+        lastSig = geom.listSig(list);
+        env.ui.setBorders(list, cfg);
+    }
+
+    function buildList() {
+        var list = [];
         var active = ws.activeWindow;
         var popups = popupRects();
         var fullscreenScreens = {};
@@ -248,7 +278,7 @@ function createTracker(env, geom) {
             }
             list.push(outer);
         }
-        env.ui.setBorders(list, cfg);
+        return list;
     }
 
     function schedule() {
@@ -279,6 +309,7 @@ function createTracker(env, geom) {
 
     function start() {
         loadConfig();
+        lastSig = "";
         var listen = function (signal, fn) {
             try { signal.connect(fn); connected.push({ signal: signal, fn: fn }); }
             catch (e) { /* not available */ }
@@ -309,5 +340,5 @@ function createTracker(env, geom) {
         env.ui.setBorders([], cfg);
     }
 
-    return { start: start, stop: stop, update: update, loadConfig: loadConfig };
+    return { start: start, stop: stop, update: update, check: check, loadConfig: loadConfig };
 }

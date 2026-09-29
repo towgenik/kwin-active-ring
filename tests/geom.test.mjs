@@ -45,6 +45,17 @@ test("tooSmallToOutline: login-time slivers are skipped", () => {
     assert.equal(geom.tooSmallToOutline({ width: 10, height: 10 }), true);
 });
 
+test("listSig: stable, order-sensitive, focus-sensitive", () => {
+    const a = [{ id: "ring-focus", x: 6, y: 34, width: 953, height: 1040, active: true }];
+    const b = [{ id: "ring-focus", x: 6, y: 34, width: 953, height: 1040, active: true }];
+    const moved = [{ id: "ring-focus", x: 7, y: 34, width: 953, height: 1040, active: true }];
+    const blurred = [{ id: "ring-1", x: 6, y: 34, width: 953, height: 1040, active: false }];
+    assert.equal(geom.listSig(a), geom.listSig(b));
+    assert.notEqual(geom.listSig(a), geom.listSig(moved));
+    assert.notEqual(geom.listSig(a), geom.listSig(blurred));
+    assert.equal(geom.listSig([]), "[]");
+});
+
 test("shifted-symbol regression: no dead shortcut forms in this repo", async () => {
     // The Meta+! bug class (HyprKwin): a binding registered as Key_Exclam can
     // never match a real Shift+1 press (Key_1 + ShiftModifier). This script

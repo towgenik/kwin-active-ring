@@ -39,6 +39,14 @@ function clampRadius(radius, width, height) {
     return Math.max(0, Math.min(radius, Math.floor(Math.min(width, height) / 2)));
 }
 
+// Stable signature for a border list: ids, rects and focus state.
+// check() compares these instead of pushing geometry at KWin every tick.
+function listSig(list) {
+    return JSON.stringify((list || []).map(function (e) {
+        return [e.id, e.x, e.y, e.width, e.height, e.active ? 1 : 0].join(",");
+    }));
+}
+
 // A rect KWin can actually render an overlay for.
 function usableRect(r) {
     return !!r && isFinite(r.x) && isFinite(r.y) &&
@@ -57,6 +65,7 @@ if (typeof module !== "undefined" && module.exports) {
         crossesBand: crossesBand,
         grownRect: grownRect,
         clampRadius: clampRadius,
+        listSig: listSig,
         usableRect: usableRect,
         tooSmallToOutline: tooSmallToOutline,
     };

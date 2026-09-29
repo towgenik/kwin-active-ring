@@ -79,6 +79,20 @@ Item {
         onTriggered: { if (root.tracker) root.tracker.update(); }
     }
 
+    // HyprKwin lesson (its areaTimer): events can miss a state change (a
+    // desktop switch racing activation, a window moved away silently), and
+    // without a poll the stale layout persists until the next window event.
+    // check() re-derives the list and pushes only when its signature moved,
+    // so this is one cheap window walk per tick and zero geometry writes
+    // when nothing changed.
+    Timer {
+        id: pollTimer
+        interval: 250
+        running: root.tracker !== null
+        repeat: true
+        onTriggered: { if (root.tracker) root.tracker.check(); }
+    }
+
     Component.onCompleted: {
         console.warn("RING_BUILD " + Build.BUILD_ID);
         tracker = Borders.createTracker({
