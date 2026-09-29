@@ -45,6 +45,38 @@ test("tooSmallToOutline: login-time slivers are skipped", () => {
     assert.equal(geom.tooSmallToOutline({ width: 10, height: 10 }), true);
 });
 
+test("stripRects: four edges, and corners only with a radius", () => {
+    const outer = { x: 0, y: 0, width: 100, height: 80 };
+    const strips = geom.stripRects(outer, 4, 4);
+    assert.equal(strips.length, 8);
+    // top edge spans between the corners
+    assert.deepEqual(strips[0], { x: 4, y: 0, width: 92, height: 4 });
+    assert.deepEqual(strips[1], { x: 4, y: 76, width: 92, height: 4 });
+    // sides are inset by max(b, r) so they do not overlap the corners
+    assert.deepEqual(strips[2], { x: 0, y: 4, width: 4, height: 72 });
+    assert.deepEqual(strips[3], { x: 96, y: 4, width: 4, height: 72 });
+    assert.equal(geom.stripCount(outer, 4, 4), 8);
+    assert.equal(geom.stripCount(outer, 4, 0), 4);
+});
+
+test("hiddenStrips: a blocker over one corner hides only that corner", () => {
+    const outer = { x: 0, y: 0, width: 100, height: 80 };
+    // a small window sitting on the top-left corner
+    const blocker = { x: -10, y: -10, width: 30, height: 30 };
+    const hidden = geom.hiddenStrips(outer, 4, 4, (strip) => geom.overlaps(blocker, strip));
+    assert.ok(hidden.includes(4), "top-left corner should hide");
+    assert.ok(!hidden.includes(1), "bottom edge should stay");
+    assert.ok(!hidden.includes(3), "right edge should stay");
+    // not everything is hidden, so the ring is still partly drawable
+    assert.equal(geom.stripsHidden(outer, 4, 4, (strip) => geom.overlaps(blocker, strip)), false);
+});
+
+test("stripsHidden: a window covering the whole ring hides all of it", () => {
+    const outer = { x: 0, y: 0, width: 100, height: 80 };
+    const big = { x: -50, y: -50, width: 500, height: 500 };
+    assert.equal(geom.stripsHidden(outer, 4, 4, (strip) => geom.overlaps(big, strip)), true);
+});
+
 test("listSig: stable, order-sensitive, focus-sensitive", () => {
     const a = [{ id: "ring-focus", x: 6, y: 34, width: 953, height: 1040, active: true }];
     const b = [{ id: "ring-focus", x: 6, y: 34, width: 953, height: 1040, active: true }];

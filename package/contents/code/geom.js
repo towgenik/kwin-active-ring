@@ -43,8 +43,49 @@ function clampRadius(radius, width, height) {
 // check() compares these instead of pushing geometry at KWin every tick.
 function listSig(list) {
     return JSON.stringify((list || []).map(function (e) {
-        return [e.id, e.x, e.y, e.width, e.height, e.active ? 1 : 0].join(",");
+        return [e.id, e.x, e.y, e.width, e.height, e.active ? 1 : 0,
+            (e.hiddenStrips || []).join("-")].join(",");
     }));
+}
+
+// The eight strip areas of a ring, in Border.qml's order:
+// 0 top, 1 bottom, 2 left, 3 right, 4..7 corners (corners need r > 0).
+// Shared so the tracker and the drawing agree on where each strip is.
+function stripRects(outer, b, r) {
+    var o = outer;
+    var inset = Math.max(b, r);
+    return [
+        { x: o.x + r, y: o.y, width: o.width - 2 * r, height: b },
+        { x: o.x + r, y: o.y + o.height - b, width: o.width - 2 * r, height: b },
+        { x: o.x, y: o.y + inset, width: b, height: o.height - 2 * inset },
+        { x: o.x + o.width - b, y: o.y + inset, width: b, height: o.height - 2 * inset },
+        { x: o.x, y: o.y, width: r, height: r },
+        { x: o.x + o.width - r, y: o.y, width: r, height: r },
+        { x: o.x, y: o.y + o.height - r, width: r, height: r },
+        { x: o.x + o.width - r, y: o.y + o.height - r, width: r, height: r },
+    ];
+}
+
+// Which strips isHidden() rejects, as an array of indices.
+function hiddenStrips(outer, b, r, isHidden) {
+    var rects = stripRects(outer, b, r);
+    var out = [];
+    for (var i = 0; i < rects.length; i++) {
+        if (i >= 4 && r <= 0) continue;   // corners are not drawn
+        if (isHidden(rects[i], i)) out.push(i);
+    }
+    return out;
+}
+
+// True when nothing of the ring is left to draw.
+function stripsHidden(outer, b, r, isHidden) {
+    var hidden = hiddenStrips(outer, b, r, isHidden);
+    return hidden.length === stripCount(outer, b, r);
+}
+
+// How many strips this ring actually has.
+function stripCount(outer, b, r) {
+    return r > 0 ? 8 : 4;
 }
 
 // A rect KWin can actually render an overlay for.
@@ -66,6 +107,10 @@ if (typeof module !== "undefined" && module.exports) {
         grownRect: grownRect,
         clampRadius: clampRadius,
         listSig: listSig,
+        stripRects: stripRects,
+        hiddenStrips: hiddenStrips,
+        stripsHidden: stripsHidden,
+        stripCount: stripCount,
         usableRect: usableRect,
         tooSmallToOutline: tooSmallToOutline,
     };

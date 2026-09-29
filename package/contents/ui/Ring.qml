@@ -61,6 +61,7 @@ Item {
             }
             border.frame = entry;
             border.active = entry.active;
+            border.hiddenStrips = entry.hiddenStrips || [];
             border.borderWidth = cfg.borderSize || 0;
             border.radius = cfg.borderRadius || 0;
             border.activeFromTheme = cfg.activeBorderSource === 0;

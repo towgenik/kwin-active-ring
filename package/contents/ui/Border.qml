@@ -24,8 +24,15 @@ Item {
     property bool overlaysHidden: false
     property int revision: 0
     property int radius: 0
+    // Indices (0..7, Border.qml's strip order) that a window stacked above
+    // covers. Those strips hide; the rest of the ring keeps drawing.
+    property var hiddenStrips: []
 
     readonly property bool shown: frame !== null && borderWidth > 0
+    // One strip: shown only when the ring shows and nothing covers it.
+    function stripShown(index) {
+        return shown && hiddenStrips.indexOf(index) < 0;
+    }
     // Kirigami's theme only resolves inside a window, hence reading it off a
     // strip: the accent colour for the focused window, and the scheme's
     // dimmed text colour for the rest, so both follow the colour scheme.
@@ -61,7 +68,7 @@ Item {
 
     BorderStrip {
         id: accent
-        shown: border.shown
+        shown: border.stripShown(0)
         revision: border.revision
         overlaysHidden: border.overlaysHidden
         stripColor: border.borderColor
@@ -75,7 +82,7 @@ Item {
     }
     BorderStrip {
         id: bottom
-        shown: border.shown
+        shown: border.stripShown(1)
         revision: border.revision
         overlaysHidden: border.overlaysHidden
         stripColor: border.borderColor
@@ -89,7 +96,7 @@ Item {
     }
     BorderStrip {
         id: left
-        shown: border.shown
+        shown: border.stripShown(2)
         revision: border.revision
         overlaysHidden: border.overlaysHidden
         stripColor: border.borderColor
@@ -103,7 +110,7 @@ Item {
     }
     BorderStrip {
         id: right
-        shown: border.shown
+        shown: border.stripShown(3)
         revision: border.revision
         overlaysHidden: border.overlaysHidden
         stripColor: border.borderColor
@@ -119,7 +126,7 @@ Item {
     // One window per corner, for the rounded part of the ring.
     BorderStrip {
         id: topLeft
-        shown: border.shown && border.r > 0
+        shown: border.stripShown(4) && border.r > 0
         revision: border.revision
         overlaysHidden: border.overlaysHidden
         stripColor: border.borderColor
@@ -133,7 +140,7 @@ Item {
     }
     BorderStrip {
         id: topRight
-        shown: border.shown && border.r > 0
+        shown: border.stripShown(5) && border.r > 0
         revision: border.revision
         overlaysHidden: border.overlaysHidden
         stripColor: border.borderColor
@@ -147,7 +154,7 @@ Item {
     }
     BorderStrip {
         id: bottomLeft
-        shown: border.shown && border.r > 0
+        shown: border.stripShown(6) && border.r > 0
         revision: border.revision
         overlaysHidden: border.overlaysHidden
         stripColor: border.borderColor
@@ -161,7 +168,7 @@ Item {
     }
     BorderStrip {
         id: bottomRight
-        shown: border.shown && border.r > 0
+        shown: border.stripShown(7) && border.r > 0
         revision: border.revision
         overlaysHidden: border.overlaysHidden
         stripColor: border.borderColor

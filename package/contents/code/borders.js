@@ -156,8 +156,12 @@ function createTracker(env, geom) {
         return false;
     }
 
-    // Whether a window stacked above `w` crosses the ring its border occupies.
-    function coveredAbove(w, outer, thickness, focusRing) {
+    // Rects of the windows stacked above `w` that could hide part of its
+    // ring. A ring is eight independent strips, so covering it is a
+    // per-strip question: a floating window over one corner must not blank
+    // the other seven edges. Returns null when nothing is in the way.
+    function blockersAbove(w, outer, thickness) {
+        var out = null;
         var order = ws.stackingOrder || [];
         var i = 0;
         while (i < order.length && order[i] !== w) i++;
@@ -168,12 +172,36 @@ function createTracker(env, geom) {
             if (!(o.normalWindow || o.dialog || o.utility || o.notification || o.criticalNotification)) continue;
             if (!kwinVisible(o) || !onCurrentActivity(o)) continue;
             if (!geom.crossesBand(copyRect(o.frameGeometry), outer, thickness)) continue;
-            // The focused ring is drawn above everything, so anything
-            // translucent above it would show it through: drop the ring.
-            if (focusRing && isTranslucent(o)) return true;
-            return true;
+            out = out || [];
+            out.push(copyRect(o.frameGeometry));
+        }
+        return out;
+    }
+
+    // A strip is dropped when a blocker covers it, or when the focused ring
+    // would show through a translucent window above it.
+    function stripHidden(blockers, strip, focusRing) {
+        if (blockers) {
+            for (var i = 0; i < blockers.length; i++) {
+                if (geom.overlaps(blockers[i], strip)) return true;
+            }
+        }
+        if (focusRing && blockers) {
+            for (var j = 0; j < blockers.length; j++) {
+                if (isTranslucent(blockers[j])) return true;
+            }
         }
         return false;
+    }
+
+    // Indices of the strips a blocker hides, so the ring can keep drawing the
+    // edges that are still visible.
+    function hiddenStripIndices(blockers, outer, focusRing) {
+        if (!blockers) return [];
+        var r = geom.clampRadius(cfg.borderRadius, outer.width, outer.height);
+        return geom.hiddenStrips(outer, cfg.borderSize, r, function (strip) {
+            return stripHidden(blockers, strip, focusRing);
+        });
     }
 
     // Keep our border windows out of the task manager, pager, Alt+Tab
@@ -276,7 +304,7 @@ function createTracker(env, geom) {
             }
             var outer = { id: id, x: r.x - b, y: r.y - b,
                           width: r.width + 2 * b, height: r.height + 2 * b,
-                          active: isActive };
+                          active: isActive, hiddenStrips: [] };
             if (!geom.usableRect(outer) || geom.tooSmallToOutline(r)) {
                 log("skipping border for", w.caption, JSON.stringify(outer));
                 continue;
@@ -291,11 +319,21 @@ function createTracker(env, geom) {
                 }
             }
             if (hidden) continue;
-            // Overlays are drawn above everything, so a window stacked
-            // over this one must not have the border painted across it.
-            if (coveredAbove(w, outer, band, isActive)) {
-                log("border hidden behind a window above", w.caption);
-                continue;
+            // Overlays are drawn above everything, so a window stacked over
+            // this one must not have the ring painted across it. Per strip:
+            // a floating window over one corner hides those strips and
+            // leaves the rest of the ring visible.
+            var blockers = blockersAbove(w, outer, band);
+            if (blockers) {
+                outer.hiddenStrips = hiddenStripIndices(blockers, outer, isActive);
+                var rr = geom.clampRadius(cfg.borderRadius, outer.width, outer.height);
+                if (outer.hiddenStrips.length >= geom.stripCount(outer, b, rr)) {
+                    log("whole ring hidden behind a window above", w.caption);
+                    continue;
+                }
+                if (outer.hiddenStrips.length) {
+                    vlog("hiding strips", outer.hiddenStrips.join(","), "for", w.caption);
+                }
             }
             list.push(outer);
         }
