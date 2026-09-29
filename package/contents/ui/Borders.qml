@@ -74,7 +74,7 @@ Item {
     Component.onCompleted: {
         console.warn("ACTIVERING_BUILD 0.1.0");
         driver = BordersDriver.createDriver({
-            workspace: Workspace,
+            workspace: KWin.Workspace,
             readConfig: function (key, fallback) { return KWin.readConfig(key, fallback); },
             log: function (msg) { console.warn(msg); },
             scheduleBorders: function () { decorationTimer.restart(); },
