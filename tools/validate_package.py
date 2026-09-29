@@ -62,6 +62,11 @@ def check_qml():
     border = (PKG / "contents" / "ui" / "BorderStrip.qml").read_text()
     if 'title: "HyprKwin overlay"' not in border:
         errors.append("BorderStrip.qml overlay title changed; hyprkwinanimations effect will not animate rings")
+    ring = (PKG / "contents" / "ui" / "Ring.qml").read_text()
+    if "isEffectActive" not in ring:
+        errors.append("Ring.qml does not poll effect state; strips will stick during gesture slides/Overview")
+    if "root.effectActive || root.shuttingDown" not in ring:
+        errors.append("Ring.qml overlaysHidden binding ignores effectActive")
 
 
 def check_no_shortcuts():

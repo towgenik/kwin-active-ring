@@ -25,6 +25,14 @@ Item {
     // focus changes simply hide one and show another.
     property var borderObjects: ({})
     property int bordersShown: 0
+    // Fullscreen effects — and the slide animation a touchpad gesture
+    // drives between desktops — paint their own view of every window, and
+    // our strips (which live on all desktops, so the compositor never moves
+    // them along) must not float over it. KWin tells scripts nothing when
+    // one starts, so this has to ask, following HyprKwin's effectTimer
+    // pattern: poll Workspace.isEffectActive while borders are on screen.
+    property bool effectActive: false
+    readonly property var hideEffects: ["slide", "overview", "windowview", "cube", "desktopgrid", "tileseditor", "expo"]
 
     Component { id: borderComponent; Border {} }
 
@@ -47,7 +55,7 @@ Item {
             let border = borderObjects[entry.id];
             if (!border) {
                 border = borderComponent.createObject(root, {
-                    overlaysHidden: Qt.binding(() => root.shuttingDown),
+                    overlaysHidden: Qt.binding(() => root.effectActive || root.shuttingDown),
                 });
                 borderObjects[entry.id] = border;
             }
@@ -63,7 +71,7 @@ Item {
             border.inactiveFromTheme = cfg.inactiveBorderSource === 0;
             border.activeColor = cfg.activeBorderColor || "#33ccff";
             border.inactiveColor = cfg.inactiveBorderColor || "#595959";
-            border.overlaysHidden = root.shuttingDown;
+            border.overlaysHidden = root.effectActive || root.shuttingDown;
             border.revision = revision;
         }
         dropMissing(borderObjects, seen);
@@ -77,6 +85,22 @@ Item {
         id: decorationTimer
         interval: 0
         onTriggered: { if (root.tracker) root.tracker.update(); }
+    }
+
+    Timer {
+        id: effectTimer
+        interval: 150
+        running: root.tracker !== null && root.bordersShown > 0
+        repeat: true
+        onTriggered: {
+            var active = false;
+            for (var i = 0; i < root.hideEffects.length; i++) {
+                try {
+                    if (Workspace.isEffectActive(root.hideEffects[i])) { active = true; break; }
+                } catch (e) { /* unknown effect id */ }
+            }
+            root.effectActive = active;
+        }
     }
 
     // HyprKwin lesson (its areaTimer): events can miss a state change (a
