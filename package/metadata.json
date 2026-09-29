@@ -1,0 +1,25 @@
+{
+    "KPackageStructure": "KWin/Script",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Email": "towgenik@users.noreply.github.com",
+                "Name": "towgenik"
+            }
+        ],
+        "Category": "Window Management",
+        "Description": "Tiler-agnostic Hyprland-style focus rings as overlay windows. Works on SSD and CSD alike, alongside any tiler (Krohnkite, HyprKwin with its own borders off, or none). Border drawing adapted from HyprKwin (GPL-3.0-or-later, by dgbooth).",
+        "EnabledByDefault": false,
+        "Icon": "preferences-system-windows-effect-tiling",
+        "Id": "active-ring",
+        "License": "GPL-3.0-or-later",
+        "Name": "Active Ring",
+        "Version": "0.1.0",
+        "Website": "https://github.com/towgenik/kwin-active-ring"
+    },
+    "X-KDE-ConfigModule": "kwin/effects/configs/kcm_kwin4_genericscripted",
+    "X-KDE-PluginKeyword": "active-ring",
+    "X-Plasma-API": "declarativescript",
+    "X-Plasma-API-Minimum-Version": "6.6",
+    "X-Plasma-MainScript": "ui/main.qml"
+}

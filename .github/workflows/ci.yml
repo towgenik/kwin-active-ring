@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: JS syntax (KWin script sources)
+        run: |
+          node --check package/contents/code/borders.js
+          node --check package/contents/code/geom.js
+      - name: Python syntax
+        run: python3 -m py_compile tools/validate_package.py
+      - name: Shell syntax
+        run: |
+          bash -n tools/install.sh
+          bash -n tools/ring-debug.sh
+          if command -v shellcheck >/dev/null; then
+            shellcheck tools/install.sh tools/ring-debug.sh
+          else
+            echo "shellcheck not installed on runner; bash -n only"
+          fi
+      - name: QML sanity (balanced braces, required imports)
+        run: python3 tools/validate_package.py --qml-only
+
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Headless geometry + regression tests
+        run: node --test tests/
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate KWin package (metadata, config keys, layout)
+        run: python3 tools/validate_package.py
