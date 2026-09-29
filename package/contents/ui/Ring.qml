@@ -82,7 +82,7 @@ Item {
     Component.onCompleted: {
         console.warn("RING_BUILD " + Build.BUILD_ID);
         tracker = Borders.createTracker({
-            workspace: Workspace,
+            workspace: KWin.Workspace,
             readConfig: (key, fallback) => KWin.readConfig(key, fallback),
             log: msg => console.warn(msg),
             schedule: () => decorationTimer.restart(),
