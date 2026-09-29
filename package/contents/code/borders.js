@@ -110,9 +110,19 @@ function createTracker(env, geom) {
     // Menus, combo boxes and tooltips are ordinary windows to KWin, and our
     // overlays are drawn above them, so a menu spilling past a window's edge
     // would have the border painted over it.
+    function allWindows() {
+        try {
+            if (ws.windowList) return ws.windowList() || [];
+        } catch (e) { /* fall through */ }
+        try {
+            if (ws.windows) return ws.windows || [];
+        } catch (e) { /* fall through */ }
+        return [];
+    }
+
     function popupRects() {
         var out = [];
-        var all = ws.windows || ws.windowList() || [];
+        var all = allWindows();
         for (var i = 0; i < all.length; i++) {
             var w = all[i];
             if (!w || w.minimized || w.deleted) continue;
@@ -155,7 +165,7 @@ function createTracker(env, geom) {
         var active = ws.activeWindow;
         var popups = popupRects();
         var fullscreenScreens = {};
-        var all = ws.windowList() || [];
+        var all = allWindows();
         var i, w;
         for (i = 0; i < all.length; i++) {
             w = all[i];
@@ -268,7 +278,7 @@ function createTracker(env, geom) {
         listen(ws.currentDesktopChanged, function () { schedule(); });
         listen(ws.currentActivityChanged, function () { schedule(); });
         if (ws.screensChanged) listen(ws.screensChanged, function () { schedule(); });
-        var existing = ws.windowList() || [];
+        var existing = allWindows();
         for (var i = 0; i < existing.length; i++) {
             if (existing[i] && !isOverlay(existing[i])) connectWindow(existing[i]);
         }
