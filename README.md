@@ -62,6 +62,32 @@ SNAP  8 overlay [overlay] @4,36 4x1036 desk=ALL
 Stack index runs bottom to top, so a later row covers an earlier one. It
 never mutates anything (enforced by `tests/probe.test.mjs`).
 
+## Keywatch
+
+Records which global shortcut KWin actually receives, so you can tell
+"not bound at all" from "bound to the wrong action".
+
+```bash
+tools/keywatch.sh 20     # start it, then press the keys
+```
+
+```
+watching 20s -- press your shortcut now
+  kwin/KrohnkiteMonocleLayout
+--- done ---
+```
+
+Needed because no synthetic key injector can verify a binding on this
+machine:
+
+| Path | Status |
+|---|---|
+| `ydotool` (uinput) | works, except `Shift`+`digit`, which never arrives (0/10) |
+| `cua-driver` (libei + portal) | `RemoteDesktop` is stripped from `kde.portal`, so libei never initialises |
+| `wtype` (`zwp_virtual_keyboard_v1`) | KWin does not expose that global |
+
+A real keyboard is the only remaining source.
+
 ## Testing safety
 
 While testing, HyprKwin's own borders MUST be off (`hyprkwinEnabled=false`,
