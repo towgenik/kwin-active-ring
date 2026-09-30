@@ -82,21 +82,22 @@ test("the block routes docks to the tiler's own re-arrange hook", { skip: !liveS
     }
 });
 
-test("the arrange is a burst: immediate, fast, safety, through one funnel", () => {
-    // Measured 2026-09-30: on show the work area is already new inline at
-    // windowAdded; on hide it flips within ~2ms of windowRemoved. A single
-    // 60ms deferral holds stale windows under the panel (or a gap) for ~4
-    // frames while the animation effect replays the jump -- the flicker.
-    // So one dock event schedules three arranges: immediate (catches show),
-    // fast (catches hide right after the flip), safety (late net for a
-    // loaded system). Extra arranges are no-ops when the area is already
-    // right and never restart the animation.
+test("the arrange is a pair past the transition: fast, then safety, one funnel", () => {
+    // Measured 2026-09-30: on show the work area reads new inline at
+    // windowAdded but passes through a transitional shape first (top moved,
+    // height not yet shrunk, bottom off-screen); on hide it flips within
+    // ~2ms of windowRemoved. Arranging at 0ms commits the bogus
+    // intermediate geometry, which the animation effect then slides down
+    // 28px over 200ms before snapping back: the bottom flicker. So no
+    // immediate arrange -- a fast one past the transition (what the eye
+    // sees) plus a safety net for a loaded system.
     const src = readFileSync(new URL("../tools/patch-tiler-docksignal.py", import.meta.url), "utf8");
     const funnels = src.match(/this\.control\.onSurfaceUpdate\(this\)/g) || [];
     assert.equal(funnels.length, 1, "exactly one arrange site (the funnel)");
-    for (const site of ['arrangeAt("inline")', 'arrangeAt("fast")', 'arrangeAt("safety")']) {
-        assert.ok(src.includes(site), `burst must schedule ${site}`);
+    for (const site of ['arrangeAt("fast")', 'arrangeAt("safety")']) {
+        assert.ok(src.includes(site), `must schedule ${site}`);
     }
+    assert.ok(!src.includes('arrangeAt("inline")'), "no 0ms arrange: it commits the transitional zone");
     assert.ok(!src.includes("setInterval"), "no repeating timer");
 });
 

@@ -72,17 +72,20 @@ BINDING = f"""        // --- {MARKER} ---
         //
         // Signal-driven: one dock event in, arranges out. No polling.
         //
-        // The zone settles fast but asymmetrically (measured 2026-09-30,
-        // eDP-1 1920x1080, top panel 28px): on show the work area is already
-        // new inline at windowAdded; on hide it flips within ~2ms of
-        // windowRemoved. A single 60ms deferral therefore holds stale windows
-        // under the panel (show) or a gap (hide) for ~4 frames while the
-        // hyprkwinanimations effect replays the jump over 200ms -- the
-        // flicker. So this schedules a burst: immediate (catches show),
-        // fast (catches hide right after the flip), safety (late net for a
-        // loaded system). Extra arranges are no-ops when the area is already
-        // right: unchanged geometry emits no signal, so the animation does
-        // not restart.
+        // The zone settles fast but NOT atomically (measured 2026-09-30,
+        // eDP-1 1920x1080, top panel 28px): on show it reads new inline at
+        // windowAdded, but it passes through a transitional shape first (top
+        // moved, height not yet shrunk, bottom off-screen); on hide it flips
+        // within ~2ms of windowRemoved. Arranging at 0ms commits that bogus
+        // intermediate geometry, and the animation effect then slides the
+        // window down 28px over 200ms before snapping the height back -- the
+        // bottom-of-the-screen flicker. So there is deliberately NO immediate
+        // arrange: only a fast one past the transition and a safety net for
+        // a loaded system. A single 60ms deferral alone would hold stale
+        // windows under the panel (show) or a gap (hide) for ~4 frames, so
+        // the fast arrange is what the eye sees. Extra arranges are no-ops
+        // when the area is already right: unchanged geometry emits no
+        // signal, so the animation does not restart.
         //
         // Duplicate dock events arrive in the same ms for one toggle, so a
         // second burst inside 80ms is coalesced away; a human re-press is
@@ -151,9 +154,7 @@ BINDING = f"""        // --- {MARKER} ---
                     }}, d);
                 }});
             }}
-            this.setTimeout(() => arrangeAt("inline"), 0);
-            if (fast !== 0)
-                this.setTimeout(() => arrangeAt("fast"), fast);
+            this.setTimeout(() => arrangeAt("fast"), fast);
             if (delay !== 0 && delay !== fast)
                 this.setTimeout(() => {{
                     console.log("AR dock safety +" + delay + "ms, workArea = " + readArea());
