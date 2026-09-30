@@ -62,3 +62,16 @@ STALE
         echo "Active Ring is running the version just installed (no need to log out)."
     fi
 fi
+
+# Optional companion: makes the tiler re-tile when the panel changes the work
+# area. Not fatal if it cannot be applied -- the ring works without it.
+if [ -f "$ROOT/tools/patch-tiler-docksignal.py" ]; then
+    if python3 "$ROOT/tools/patch-tiler-docksignal.py" --check >/dev/null 2>&1; then
+        echo "Panel-toggle re-tile patch: applied."
+    else
+        echo "Panel-toggle re-tile patch: NOT applied."
+        echo "  apply with: tools/patch-tiler-docksignal.py --apply"
+        echo "  then restart KWin -- the tiler's JS is cached and reconfigure will"
+        echo "  not pick the change up."
+    fi
+fi

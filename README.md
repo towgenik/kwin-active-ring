@@ -73,6 +73,56 @@ that otherwise shows up as "my windows look wrong" with nothing logged
 anywhere, and whose only reliable cure is a session restart. Small floating
 dialogs are ignored, since those overlapping a tile is normal.
 
+## Panel toggle re-tiles (patch to the tiler)
+
+```bash
+tools/patch-tiler-docksignal.py --apply    # insert the binding (idempotent)
+tools/patch-tiler-docksignal.py --check    # non-zero when missing, gates CI
+tools/patch-tiler-docksignal.py --revert
+```
+
+Toggling the panel releases (or restores) its exclusive zone, the work area
+changes, and the tiles keep their old size. Signal-driven, no polling.
+
+**Why a patch is needed.** KWin on Plasma 6.6 has no work-area signal. There
+is no `clientAreaChanged` and no `screenResized` on `Workspace` — both are
+`undefined`. Probing every candidate signal:
+
+| present | absent |
+|---|---|
+| `windowAdded`, `windowRemoved` | `clientAreaChanged` |
+| `screensChanged` | `screenResized` |
+| `virtualScreenGeometryChanged` | `numberScreensChanged` |
+| `currentDesktopChanged` | `windowsChanged`, `windowListChanged` |
+| `desktopsChanged`, `currentActivityChanged` | `numberDesktopsChanged` |
+
+Hiding the panel emits exactly one thing, verified live:
+
+```
+DOCK REMOVED class=plasmashell dock=true
+DOCK ADDED   class=plasmashell dock=true
+```
+
+The tiler's only re-arrange hook is `onSurfaceUpdate`, and upstream binds it
+to just `screensChanged`, `virtualScreenGeometryChanged`,
+`currentDesktopChanged` and `currentActivityChanged` — none of which fire on
+a dock change. The patch routes dock add/remove to that same hook.
+
+There is no way to do this from outside. Every tiler *shortcut* ends in a
+blanket `arrange(ctx)`, but every shortcut also has a side effect;
+`windowActivated` only stamps a timestamp; re-setting the active window does
+not re-emit. So the change has to go where the bindings are.
+
+It filters on `client.dock`, so opening a menu or a tray popup — also
+`plasmashell`, but not a dock — does not trigger a re-tile.
+
+### Loading the patched tiler
+
+The tiler's JS is a QML `import`, and it is cached in memory in a way that
+survives `org.kde.KWin.reconfigure` and clearing `~/.cache/kwin/qmlcache`. To
+load the patch, restart KWin (or the session) after applying. A tiler update
+overwrites the file; re-run `--apply` and restart.
+
 ## Keywatch
 
 Records which global shortcut KWin actually receives, so you can tell
