@@ -23,6 +23,37 @@ without logging out.
 
 ## Configure
 
+The settings live in `kwinrc` under `[Script-active-ring]`, but there is a
+GUI: **System Settings → Window Management → KWin Scripts → Active Ring →
+Configure**.
+
+Plasma's generic scripted KCM (`kcm_kwin4_genericscripted`) builds the form
+from two files:
+
+- `contents/config/main.xml` — the schema: key, type, default, range, label,
+  tooltip
+- `contents/ui/config.ui` — the form itself
+
+Widgets bind to keys by name through `KCModule::addConfig()`: a widget called
+`kcfg_<KeyName>` is bound to the key `<KeyName>`. So the two files must agree
+in both directions, and the widget type must suit the key type:
+
+| key type | widget |
+|---|---|
+| `Bool` | `QCheckBox` |
+| `Int` | `QSpinBox` |
+| `Int` + `<choices>` | `QComboBox`, bound **by item index** |
+| `Color` | `KColorButton` |
+
+`tools/validate_package.py` checks all of it — a key with no widget is
+unreachable, a widget with no key silently does nothing, a mismatched type
+will not round-trip, and a `<choice>`/combo-item count mismatch shifts every
+stored value.
+
+```bash
+tools/validate_package.py    # all of the above, plus the existing checks
+```
+
 System Settings → Window Management → KWin Scripts → Active Ring, or
 `kwinrc [Script-active-ring]`: `BorderSize` (default 4), `BorderRadius`
 (default 4), active/inactive sources and colors, gradient angle/spin,

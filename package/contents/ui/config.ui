@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Configuration form for the Active Ring KWin script.
+
+  Plasma loads this through the generic scripted KWin KCM
+  (X-KDE-ConfigModule = kcm_kwin4_genericscripted), which builds a
+  KConfigLoader from contents/config/main.xml, loads this file with QUiLoader,
+  and binds widgets to config keys through KCModule::addConfig().
+
+  The binding rule is the standard KConfigDialogManager one: a widget whose
+  objectName is kcfg_<KeyName> is bound to the key of that name. So the
+  widget names here and the entries in main.xml must agree exactly, in both
+  directions. tools/validate_package.py checks that, because a widget with no
+  key silently does nothing and a key with no widget is unreachable.
+-->
+<ui version="4.0">
+ <class>ActiveRingConfig</class>
+ <widget class="QWidget" name="ActiveRingConfig">
+  <property name="geometry">
+   <rect><x>0</x><y>0</y><width>560</width><height>520</height></rect>
+  </property>
+  <property name="windowTitle">
+   <string>Active Ring</string>
+  </property>
+  <layout class="QVBoxLayout" name="mainLayout">
+   <item>
+    <widget class="QGroupBox" name="borderGroup">
+     <property name="title"><string>Border</string></property>
+     <layout class="QFormLayout" name="borderForm">
+      <item row="0" column="0">
+       <widget class="QLabel" name="borderSizeLabel">
+        <property name="text"><string>Border thickness:</string></property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QSpinBox" name="kcfg_BorderSize">
+        <property name="toolTip"><string>How thick the drawn border is, in pixels. 0 hides the border entirely.</string></property>
+        <property name="suffix"><string> px</string></property>
+        <property name="maximum"><number>32</number></property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="borderRadiusLabel">
+        <property name="text"><string>Corner radius:</string></property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QSpinBox" name="kcfg_BorderRadius">
+        <property name="toolTip"><string>Rounds the corners, in pixels. 0 gives square corners. Capped at half the window so small windows stay sane.</string></property>
+        <property name="suffix"><string> px</string></property>
+        <property name="maximum"><number>64</number></property>
+       </widget>
+      </item>
+      <item row="2" column="0" colspan="2">
+       <widget class="QCheckBox" name="kcfg_BorderOnUndecorated">
+        <property name="text"><string>Draw on windows without a server-side decoration</string></property>
+        <property name="toolTip"><string>Needed for CSD and borderless windows, which is most of them on Wayland. Turn this off if you use a decoration that draws its own frame and you only want the ring on decorated windows.</string></property>
+       </widget>
+      </item>
+      <item row="3" column="0" colspan="2">
+       <widget class="QCheckBox" name="kcfg_DrawOnDecorated">
+        <property name="text"><string>Also draw where a decoration is present</string></property>
+        <property name="toolTip"><string>Off by default: with a server-side decoration this draws a second frame just outside the first, which most people do not want.</string></property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="activeGroup">
+     <property name="title"><string>Focused window</string></property>
+     <layout class="QFormLayout" name="activeForm">
+      <item row="0" column="0">
+       <widget class="QLabel" name="activeSourceLabel">
+        <property name="text"><string>Border colour:</string></property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QComboBox" name="kcfg_ActiveBorderSource">
+        <property name="toolTip"><string>Where the colour of the focused window's border comes from. "From the colour scheme" follows the Plasma accent colour, so it changes with the theme.</string></property>
+        <item><property name="text"><string>From the colour scheme</string></property></item>
+        <item><property name="text"><string>Custom colour</string></property></item>
+        <item><property name="text"><string>Custom gradient</string></property></item>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="activeColorLabel">
+        <property name="text"><string>Custom colour:</string></property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="KColorButton" name="kcfg_ActiveBorderColor">
+        <property name="toolTip"><string>Used when the border colour is set to a custom colour.</string></property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="activeColor2Label">
+        <property name="text"><string>Gradient end colour:</string></property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="KColorButton" name="kcfg_ActiveBorderColor2">
+        <property name="toolTip"><string>The gradient runs from the custom colour above to this one. Only used with the custom gradient.</string></property>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="gradientAngleLabel">
+        <property name="text"><string>Gradient angle:</string></property>
+       </widget>
+      </item>
+      <item row="3" column="1">
+       <widget class="QSpinBox" name="kcfg_BorderGradientAngle">
+        <property name="toolTip"><string>Direction the gradient runs, in degrees. 0 is left to right, 90 is top to bottom.</string></property>
+        <property name="suffix"><string>°</string></property>
+        <property name="maximum"><number>360</number></property>
+       </widget>
+      </item>
+      <item row="4" column="0">
+       <widget class="QLabel" name="gradientSpinLabel">
+        <property name="text"><string>Gradient rotation speed:</string></property>
+       </widget>
+      </item>
+      <item row="4" column="1">
+       <widget class="QSpinBox" name="kcfg_BorderGradientSpin">
+        <property name="toolTip"><string>Degrees per second the gradient rotates. 0 leaves it still. Only used with the custom gradient.</string></property>
+        <property name="suffix"><string> °/s</string></property>
+        <property name="maximum"><number>360</number></property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="inactiveGroup">
+     <property name="title"><string>Unfocused windows</string></property>
+     <layout class="QFormLayout" name="inactiveForm">
+      <item row="0" column="0" colspan="2">
+       <widget class="QCheckBox" name="kcfg_ShowInactiveBorders">
+        <property name="text"><string>Draw borders on unfocused windows</string></property>
+        <property name="toolTip"><string>Off by default, so only the focused window is outlined. On, every tiled window gets a border in the inactive colour.</string></property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="inactiveSourceLabel">
+        <property name="text"><string>Border colour:</string></property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QComboBox" name="kcfg_InactiveBorderSource">
+        <property name="toolTip"><string>Where the colour of unfocused windows' borders comes from. Only used when borders on unfocused windows are on.</string></property>
+        <item><property name="text"><string>From the colour scheme</string></property></item>
+        <item><property name="text"><string>Custom colour</string></property></item>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="inactiveColorLabel">
+        <property name="text"><string>Custom colour:</string></property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="KColorButton" name="kcfg_InactiveBorderColor">
+        <property name="toolTip"><string>Used when the border colour is set to a custom colour.</string></property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="debugGroup">
+     <property name="title"><string>Troubleshooting</string></property>
+     <layout class="QVBoxLayout" name="debugForm">
+      <item>
+       <widget class="QCheckBox" name="kcfg_Debug">
+        <property name="text"><string>Log to the journal</string></property>
+        <property name="toolTip"><string>Writes a line per re-tile to the KWin journal. Off by default; it is noisy and never needed in normal use.</string></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="kcfg_DebugVerbose">
+        <property name="text"><string>Log every tracked window</string></property>
+        <property name="toolTip"><string>Adds per-window detail to the journal log, including the cull decisions. Only useful when diagnosing a border that will not appear.</string></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="debugHintLabel">
+        <property name="text"><string>Read it with: journalctl --user -u plasma-kwin_wayland -f | grep 'Ring:'</string></property>
+        <property name="wordWrap"><bool>true</bool></property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <spacer name="verticalSpacer">
+     <property name="orientation"><enum>Qt::Vertical</enum></property>
+     <property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property>
+    </spacer>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>KColorButton</class>
+   <extends>QPushButton</extends>
+   <header>kcolorbutton.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>

@@ -13,6 +13,7 @@ Checks:
 import json
 import re
 import sys
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -51,6 +52,74 @@ def check_config_keys():
             errors.append(f'readConfig("{key}") has no entry in config/main.xml')
 
 
+# The KCM binds widgets to keys by name: a widget called kcfg_<Key> is bound to
+# the config key <Key>. So a widget with no key silently does nothing, and a
+# key with no widget is unreachable from the GUI. Both are checked here.
+CONFIG_UI = PKG / "contents" / "ui" / "config.ui"
+KCFG_NS = "{http://www.kde.org/standards/kcfg/1.0}"
+WIDGET_FOR_TYPE = {
+    "Bool": "QCheckBox",
+    "Int": "QSpinBox",
+    "String": "QLineEdit",
+    "Color": "KColorButton",
+}
+
+
+def check_config_form():
+    if not CONFIG_UI.exists():
+        errors.append("contents/ui/config.ui missing: no configuration GUI")
+        return
+    ui = CONFIG_UI.read_text()
+
+    for f in (MAINXML, CONFIG_UI):
+        try:
+            ET.parse(f)
+        except ET.ParseError as exc:
+            errors.append(f"{f.name}: not well-formed XML ({exc})")
+            return
+
+    kinds = dict(
+        (name, cls)
+        for cls, name in re.findall(
+            r'<widget class="(\w+)" name="kcfg_(\w+)"', ui, re.S)
+    )
+    root = ET.parse(MAINXML).getroot()
+    entries = list(root.iter(KCFG_NS + "entry"))
+    declared = {e.get("name") for e in entries}
+
+    # BuildId is written by the installer, never shown or edited.
+    internal = {"BuildId"}
+
+    for name in sorted(set(kinds) - declared - internal):
+        errors.append(f"config.ui binds kcfg_{name} but main.xml has no such entry")
+    for name in sorted(declared - set(kinds) - internal):
+        errors.append(f"main.xml entry {name} has no kcfg_ widget: unreachable from the GUI")
+
+    for e in entries:
+        name, typ = e.get("name"), e.get("type")
+        if name in internal or name not in kinds:
+            continue
+        choices = e.find(KCFG_NS + "choices")
+        want = "QComboBox" if choices is not None else WIDGET_FOR_TYPE.get(typ)
+        got = kinds[name]
+        if want and got != want:
+            errors.append(
+                f"{name}: type {typ} should use a {want}, config.ui uses a {got}")
+        if choices is None:
+            continue
+        # An Int with <choices> is bound to a combo by item index, so the item
+        # count has to match or the stored value means something else.
+        n_choices = len(choices.findall(KCFG_NS + "choice"))
+        m = re.search(
+            r'<widget class="QComboBox" name="kcfg_%s".*?</widget>' % re.escape(name),
+            ui, re.S)
+        n_items = len(re.findall(r"<item>", m.group(0))) if m else -1
+        if n_choices != n_items:
+            errors.append(
+                f"{name}: {n_choices} <choice> but {n_items} combo items; "
+                f"the combo is bound by index so these must match")
+
+
 def check_qml():
     for f in QML_FILES:
         src = f.read_text()
@@ -86,6 +155,7 @@ def main():
     else:
         check_metadata()
         check_config_keys()
+        check_config_form()
         check_qml()
         check_no_shortcuts()
     if errors:

@@ -4,24 +4,110 @@
       xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0 http://www.kde.org/standards/kcfg/1.0/kcfg.xsd">
     <kcfgfile name=""/>
     <group name="">
-        <entry name="Debug" type="Bool"><default>false</default></entry>
-        <entry name="DebugVerbose" type="Bool"><default>false</default></entry>
-        <entry name="BorderSize" type="Int"><default>4</default><min>0</min><max>32</max></entry>
-        <entry name="BorderRadius" type="Int"><default>4</default><min>0</min><max>64</max></entry>
-        <!-- 0: from the colour scheme, 1: custom, 2: gradient (ActiveBorderColor to ActiveBorderColor2) -->
-        <entry name="ActiveBorderSource" type="Int"><default>0</default></entry>
-        <entry name="ActiveBorderColor" type="Color"><default>#33ccff</default></entry>
-        <entry name="ActiveBorderColor2" type="Color"><default>#00ff99</default></entry>
-        <entry name="BorderGradientAngle" type="Int"><default>45</default><min>0</min><max>360</max></entry>
-        <!-- Degrees per second; 0 keeps the gradient still. -->
-        <entry name="BorderGradientSpin" type="Int"><default>0</default><min>0</min><max>360</max></entry>
-        <!-- 0: from the colour scheme, 1: custom -->
-        <entry name="InactiveBorderSource" type="Int"><default>0</default></entry>
-        <entry name="InactiveBorderColor" type="Color"><default>#595959</default></entry>
-        <entry name="ShowInactiveBorders" type="Bool"><default>false</default></entry>
-        <!-- Draw on windows the decoration cannot cover (CSD / borderless). -->
-        <entry name="BorderOnUndecorated" type="Bool"><default>true</default></entry>
-        <!-- Also draw where a server-side decoration is present (double frame). Off by default. -->
-        <entry name="DrawOnDecorated" type="Bool"><default>false</default></entry>
+        <!-- Every entry here is surfaced in System Settings via
+             contents/ui/config.ui, which binds widgets named kcfg_<Key>.
+             tools/validate_package.py checks both directions, so a key with
+             no widget (or a widget with no key) fails the build. -->
+
+        <entry name="BorderSize" type="Int">
+            <label>Border thickness</label>
+            <tooltip>How thick the drawn border is, in pixels. 0 hides the border entirely.</tooltip>
+            <default>4</default>
+            <min>0</min>
+            <max>32</max>
+        </entry>
+
+        <entry name="BorderRadius" type="Int">
+            <label>Corner radius</label>
+            <tooltip>Rounds the corners, in pixels. 0 gives square corners. Capped at half the window so small windows stay sane.</tooltip>
+            <default>4</default>
+            <min>0</min>
+            <max>64</max>
+        </entry>
+
+        <entry name="BorderOnUndecorated" type="Bool">
+            <label>Draw on windows without a server-side decoration</label>
+            <tooltip>Needed for CSD and borderless windows, which is most of them on Wayland. Turn this off if you use a decoration that draws its own frame and you only want the ring on decorated windows.</tooltip>
+            <default>true</default>
+        </entry>
+
+        <entry name="DrawOnDecorated" type="Bool">
+            <label>Also draw where a decoration is present</label>
+            <tooltip>Off by default: with a server-side decoration this draws a second frame just outside the first, which most people do not want.</tooltip>
+            <default>false</default>
+        </entry>
+
+        <entry name="ActiveBorderSource" type="Int">
+            <label>Active border colour</label>
+            <tooltip>Where the colour of the focused window's border comes from.</tooltip>
+            <choices>
+                <choice name="From the colour scheme"/>
+                <choice name="Custom colour"/>
+                <choice name="Custom gradient"/>
+            </choices>
+            <default>0</default>
+        </entry>
+
+        <entry name="ActiveBorderColor" type="Color">
+            <label>Custom active colour</label>
+            <tooltip>Used when the active border colour is set to a custom colour.</tooltip>
+            <default>#33ccff</default>
+        </entry>
+
+        <entry name="ActiveBorderColor2" type="Color">
+            <label>Gradient end colour</label>
+            <tooltip>The gradient runs from the custom active colour to this one. Used when the active border colour is set to a custom gradient.</tooltip>
+            <default>#00ff99</default>
+        </entry>
+
+        <entry name="BorderGradientAngle" type="Int">
+            <label>Gradient angle</label>
+            <tooltip>Direction the gradient runs, in degrees. 0 is left to right, 90 is top to bottom.</tooltip>
+            <default>45</default>
+            <min>0</min>
+            <max>360</max>
+        </entry>
+
+        <entry name="BorderGradientSpin" type="Int">
+            <label>Gradient rotation speed</label>
+            <tooltip>Degrees per second the gradient rotates. 0 leaves it still. Applies to the custom gradient only.</tooltip>
+            <default>0</default>
+            <min>0</min>
+            <max>360</max>
+        </entry>
+
+        <entry name="ShowInactiveBorders" type="Bool">
+            <label>Draw borders on unfocused windows</label>
+            <tooltip>Off by default, so only the focused window is outlined. On, every tiled window gets a border in the inactive colour.</tooltip>
+            <default>false</default>
+        </entry>
+
+        <entry name="InactiveBorderSource" type="Int">
+            <label>Inactive border colour</label>
+            <tooltip>Where the colour of unfocused windows' borders comes from. Only used when borders on unfocused windows are on.</tooltip>
+            <choices>
+                <choice name="From the colour scheme"/>
+                <choice name="Custom colour"/>
+            </choices>
+            <default>0</default>
+        </entry>
+
+        <entry name="InactiveBorderColor" type="Color">
+            <label>Custom inactive colour</label>
+            <tooltip>Used when the inactive border colour is set to a custom colour.</tooltip>
+            <default>#595959</default>
+        </entry>
+
+        <entry name="Debug" type="Bool">
+            <label>Log to the journal</label>
+            <tooltip>Writes a line per re-tile to the KWin journal. Off by default; it is noisy and never needed in normal use.</tooltip>
+            <default>false</default>
+        </entry>
+
+        <entry name="DebugVerbose" type="Bool">
+            <label>Log every tracked window</label>
+            <tooltip>Adds per-window detail to the journal log, including the cull decisions. Only useful when diagnosing a border that will not appear. Implies the log above.</tooltip>
+            <default>false</default>
+        </entry>
     </group>
 </kcfg>
