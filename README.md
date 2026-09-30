@@ -88,6 +88,29 @@ machine:
 
 A real keyboard is the only remaining source.
 
+## Desktop navigation keys
+
+The digit form (`Meta+Shift+2` to move a window to desktop 2) duplicates
+what the arrow family already does, and it is the one form that cannot be
+verified on this machine. So the arrows are primary, and the digits are kept
+only for Omarchy parity.
+
+```bash
+tools/desktop-keys.py            # apply (idempotent)
+tools/desktop-keys.py --check    # verify only, never writes
+```
+
+| Combo | Action |
+|---|---|
+| `Meta+Ctrl+Left` / `Right` | switch to the desktop left / right |
+| `Meta+Ctrl+Up` / `Down` | switch to the desktop above / below |
+| `Meta+Shift+Ctrl+Left` / `Right` | **move** the window to that desktop, follow it |
+| `Meta+Shift+Ctrl+Up` / `Down` | same, vertically |
+
+The pattern matches the tiler's: bare combo moves focus, `Shift` carries the
+window along. Verified end to end — `Meta+Shift+Ctrl+Right` moved a window
+from desktop 2 to 3 and followed it.
+
 ## Testing safety
 
 While testing, HyprKwin's own borders MUST be off (`hyprkwinEnabled=false`,
