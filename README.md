@@ -116,6 +116,50 @@ not re-emit. So the change has to go where the bindings are.
 It filters on `client.dock`, so opening a menu or a tray popup — also
 `plasmashell`, but not a dock — does not trigger a re-tile.
 
+### The alternative: make the work area stop changing
+
+Read from upstream sources, there is a config-only answer that removes the
+need for the patch entirely. `plasma-panel-colorizer` writes native Plasma
+panel properties (`package/contents/ui/code/utils.js`, `setPanelModeScript`):
+
+```js
+panel.hiding   = "<visibility>"   // Plasma::Panel::Hiding
+panel.floating = <bool>           // Plasma::Panel::floating
+panel.height   = <thickness>
+```
+
+`stockPanelSettings.visibility` is `panel.hiding`, and Plasma's `AutoHide`
+reserves no space. Measured:
+
+```
+docked panel, Meta+Shift+Space:   workArea 0,28 1920x1052  <->  0,0 1920x1080
+stockPanelSettings.visibility = "autohide":  0,0 1920x1080  <->  0,0 1920x1080
+```
+
+With `autohide` the work area is constant, so there is nothing to re-tile and
+no signal to send. `stockPanelSettings.floating = true` did **not** help --
+the exclusive zone stayed at 28, verified.
+
+The trade-off: the panel then overlays window content, so it covers the top
+edge of a full-height tile (and that tile's ring strip). Keeping the panel
+docked and patching the tiler keeps the ring visible and resizes the tiles.
+Pick whichever you prefer; they are not combinable.
+
+Also worth knowing: the tiler re-arranges on window add/remove, and each
+arrange re-reads the work area -- `get screens()` builds fresh `KWinSurface`
+objects, and each constructor re-reads `workspace.clientArea`. That is why
+opening and closing any window repairs a stale layout, and why the
+dock add/remove hook is sufficient: it needs a re-arrange, nothing more.
+
+### Upstream status
+
+Current upstream (`esjeon/krohnkite`, `src/driver/kwin/kwindriver.ts`) has
+**the same gap** -- it binds `numberScreensChanged`, `screenResized`,
+`currentActivityChanged`, `currentDesktopChanged`, `clientAdded` and
+`clientRemoved`, and no dock or exclusive-zone signal. It is a TypeScript
+rewrite; the installed 0.9.9.2 is the older compiled JS. So this is worth
+reporting rather than patching silently.
+
 ### Loading the patched tiler
 
 The tiler's JS is a QML `import`, and it is cached in memory in a way that

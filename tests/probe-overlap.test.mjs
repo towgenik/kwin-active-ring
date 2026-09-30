@@ -40,3 +40,19 @@ test("no variable shadowing between the work area and the loop counters", () => 
         "loop counters must not reuse the work-area name"
     );
 });
+
+test("windows on different desktops are not reported as overlapping", () => {
+    // brave on D2 and a terminal on D1 have rectangles that intersect in
+    // coordinates, but they are never on screen together. Comparing raw
+    // rectangles produced a false alarm on every multi-desktop setup.
+    assert.match(src, /function shareDesktop/);
+    assert.match(src, /if \(!shareDesktop\(solid\[x\]\.d, solid\[y\]\.d\)\) continue;/);
+});
+
+test("a window on all desktops shares the screen with everything", () => {
+    // deskList returns null for onAllDesktops and shareDesktop treats null as
+    // "always shares" -- otherwise an all-desktops window would be silently
+    // excluded from every comparison.
+    assert.match(src, /if \(c\.onAllDesktops\) return null;/);
+    assert.match(src, /if \(a === null \|\| b === null\) return true;/);
+});

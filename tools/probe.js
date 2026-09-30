@@ -26,6 +26,25 @@ function init() {
         return out.length ? out.join("+") : "ALL";
     }
 
+    // The same thing as a list, for set operations. "ALL" means the window is
+    // on every desktop, so it shares the screen with everything.
+    function deskList(c) {
+        try {
+            if (c.onAllDesktops) return null;
+            var out = [];
+            for (var j = 0; j < c.desktops.length; j++) out.push(c.desktops[j].id);
+            return out;
+        } catch (e) { return null; }
+    }
+
+    function shareDesktop(a, b) {
+        if (a === null || b === null) return true;   // on all desktops
+        for (var i = 0; i < a.length; i++) {
+            for (var j = 0; j < b.length; j++) if (a[i] === b[j]) return true;
+        }
+        return false;
+    }
+
     var area = ws.clientArea(0, ws.activeScreen, ws.currentDesktop);
     var full = ws.clientArea(3, ws.activeScreen, ws.currentDesktop);
     var currentName = names[ws.currentDesktop.id] || ws.currentDesktop.id;
@@ -88,11 +107,14 @@ function init() {
         // is what a wedged tiler leaves behind. The probe cannot read the
         // tiler's float state, so size is the proxy.
         if (gg.width < area.width * 0.25 && gg.height < area.height * 0.25) continue;
-        solid.push({ n: stackName(wa), g: gg });
+        solid.push({ n: stackName(wa), g: gg, d: deskList(wa) });
     }
     var clashes = [];
     for (var x = 0; x < solid.length; x++) {
         for (var y = x + 1; y < solid.length; y++) {
+            // Windows on disjoint desktops never share the screen, so their
+            // rectangles are allowed to overlap.
+            if (!shareDesktop(solid[x].d, solid[y].d)) continue;
             var ga = solid[x].g, gb = solid[y].g;
             var ox = Math.min(ga.x + ga.width, gb.x + gb.width) - Math.max(ga.x, gb.x);
             var oy = Math.min(ga.y + ga.height, gb.y + gb.height) - Math.max(ga.y, gb.y);
