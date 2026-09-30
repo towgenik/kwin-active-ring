@@ -111,6 +111,56 @@ The pattern matches the tiler's: bare combo moves focus, `Shift` carries the
 window along. Verified end to end — `Meta+Shift+Ctrl+Right` moved a window
 from desktop 2 to 3 and followed it.
 
+## Resize keys
+
+```bash
+tools/resize-keys.py
+```
+
+| Combo | Action |
+|---|---|
+| `Meta+Alt+Left` / `Right` | shrink / grow width |
+| `Meta+Alt+Up` / `Down` | shrink / grow height |
+| `Meta+-` / `Meta+=` | secondary, width only |
+
+Alt carries the resize because the bare arrows are already focus
+(`Meta+<arrow>`) and window-move (`Meta+Shift+<arrow>`), which leaves the
+family readable at a glance:
+
+```
+Meta+<arrow>             focus
+Meta+Shift+<arrow>       move the window
+Meta+Alt+<arrow>         resize
+Meta+Ctrl+<arrow>        change desktop
+Meta+Shift+Ctrl+<arrow>  move the window to another desktop
+```
+
+`Meta+-` / `Meta+=` are kept as a secondary because they are plain
+(unshifted) keysyms and do deliver. The shifted height pair
+`Meta+Shift+-` / `Meta+Shift+=` is deliberately **not** bound: those encode
+to `Key_Underscore` / `Key_Plus` with no Shift bit, the dead form behind
+HyprKwin's `Meta+!` bug.
+
+### Known upstream bug: resize overlaps windows
+
+The keys fire and the tiler acts on them, but the tiler's resize does not
+reflow siblings. Its `resizeTile` delegates to `layout.adjust` with a step of
+3% of the work area, and in the layout in use the focused window grows while
+its neighbours stay put:
+
+```
+start   konsole @12,40  940x1028   discord @968,40  940x1028
+grow 1  konsole @12,40 1036x1028   discord @968,40  940x1028
+grow 2  konsole @12,40 1132x1028   discord @968,40  940x1028
+grow 3  konsole @12,40 1228x1028   discord @968,40  940x1028
+grow 4  konsole @12,40 1324x1028   discord @968,40  940x1028   <- 368px overlap
+```
+
+Under the Columns layout it does reflow, but moves the divider the wrong way
+— it grows the *other* window into the focused one instead. So this is an
+upstream tiler bug, not a keybinding problem, and the hotkeys are not the
+thing to fix.
+
 ## Testing safety
 
 While testing, HyprKwin's own borders MUST be off (`hyprkwinEnabled=false`,
