@@ -116,6 +116,38 @@ not re-emit. So the change has to go where the bindings are.
 It filters on `client.dock`, so opening a menu or a tray popup — also
 `plasmashell`, but not a dock — does not trigger a re-tile.
 
+### The arrange has to be deferred, and that is the whole fix
+
+The first version called `onSurfaceUpdate` straight from the handler and it
+was a **silent no-op**, even after a KWin restart. `windowRemoved` fires while
+the dock is still counted in the screen's exclusive zone, so arranging inline
+re-reads the *old* work area, computes the same geometry, and nothing moves.
+
+The patch defers the arrange by 60ms instead:
+
+```js
+this.setTimeout(() => this.control.onSurfaceUpdate(this), 60);
+```
+
+One dock event in, one arrange out. That is a one-shot deferral, not a poll —
+there is no interval and nothing re-checks. It is also how the tiler already
+handles geometry settles (`enforceSize`, 10ms) and how upstream defers
+`client.windowShown` (50ms).
+
+The block logs the work area both inline and after the deferral, so if this
+ever stops working the journal says whether the inline read was stale and
+whether the deferred read differed, instead of failing silently the way v1
+did:
+
+```
+AR dock event, workArea inline = 28,1052
+AR dock deferred, workArea = 0,1080
+```
+
+```
+journalctl --user -u plasma-kwin_wayland -f | grep 'AR dock'
+```
+
 ### The alternative: make the work area stop changing
 
 Read from upstream sources, there is a config-only answer that removes the

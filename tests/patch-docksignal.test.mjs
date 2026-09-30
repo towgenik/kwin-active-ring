@@ -73,20 +73,39 @@ function patchBlock(src) {
 test("the block routes docks to the tiler's own re-arrange hook", { skip: !liveSrc }, () => {
     const block = patchBlock(readFileSync(LIVE, "utf8"));
     // Signal-driven: dock add/remove -> the hook the tiler already uses for
-    // screen changes. No polling, no timer, no hand-rolled layout pass.
+    // screen changes. No hand-rolled layout pass.
     assert.match(block, /this\.workspace\.windowAdded/);
     assert.match(block, /this\.workspace\.windowRemoved/);
     assert.match(block, /this\.control\.onSurfaceUpdate\(this\)/);
-    // Check the code, not the prose -- the comment above says "no polling",
-    // which a naive substring search trips over.
-    const code = block.replace(/\/\/[^\n]*/g, "");
-    for (const forbidden of ["setTimeout", "Timer", "interval", "poll", "sleep"]) {
-        assert.ok(!code.includes(forbidden), `patch must not contain ${forbidden}`);
+    for (const forbidden of ["setInterval", "while (", "for (;;)", "repeat"]) {
+        assert.ok(!block.includes(forbidden), `patch must not contain ${forbidden}`);
     }
+});
+
+test("the arrange is deferred exactly once, and the deferral is the whole fix", () => {
+    // windowRemoved fires while the dock is still counted in the screen's
+    // exclusive zone, so arranging inline re-reads the old work area and
+    // silently does nothing. One deferred arrange is what makes it land.
+    // That is a one-shot, not a poll: exactly one setTimeout, no interval.
+    const src = readFileSync(new URL("../tools/patch-tiler-docksignal.py", import.meta.url), "utf8");
+    const setTimeouts = src.match(/this\.setTimeout\(/g) || [];
+    assert.equal(setTimeouts.length, 1, "exactly one deferred arrange");
+    assert.match(src, /this\.setTimeout\(\(\) => \{[\s\S]*onSurfaceUpdate\(this\)[\s\S]*\}, 60\);/);
+    assert.ok(!src.includes("setInterval"), "no repeating timer");
 });
 
 test("only docks trigger it, so opening a menu does not re-tile", { skip: !liveSrc }, () => {
     const block = patchBlock(readFileSync(LIVE, "utf8"));
     assert.match(block, /isDock = !!client\.dock/);
-    assert.match(block, /if \(isDock\)/);
+    assert.match(block, /if \(!isDock\)/);
+});
+
+test("it reports the work area at both points, so a future failure is diagnosable", () => {
+    // If the deferral ever stops being enough, the log says whether the area
+    // was stale inline and whether the deferred read differs. Without this
+    // the patch fails silently, which is exactly how v1 failed.
+    const src = readFileSync(new URL("../tools/patch-tiler-docksignal.py", import.meta.url), "utf8");
+    assert.match(src, /workArea inline = /);
+    assert.match(src, /workArea = /);
+    assert.match(src, /clientArea\(0, this\.workspace\.activeScreen/);
 });

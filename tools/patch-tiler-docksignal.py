@@ -68,7 +68,16 @@ BINDING = f"""        // --- {MARKER} ---
         // KWin 6.6 has no exclusive-zone signal; a panel show/hide emits only
         // windowAdded/windowRemoved. Upstream never routes those to
         // onSurfaceUpdate, so the tiles keep their old size after the work
-        // area changes. Signal-driven, no polling.
+        // area changes.
+        //
+        // Signal-driven: one dock event in, one arrange out. No polling.
+        //
+        // The arrange is DEFERRED, and that is the whole trick. windowRemoved
+        // fires while the dock is still counted in the screen's exclusive
+        // zone, so arranging inline re-reads the *old* work area and changes
+        // nothing -- arranging straight from the handler is a silent no-op.
+        // The tiler already defers the same way for geometry settles
+        // (enforceSize, 10ms) and upstream defers client.windowShown by 50ms.
         const dockSurfaceChanged = (client) => {{
             if (!client)
                 return;
@@ -77,8 +86,18 @@ BINDING = f"""        // --- {MARKER} ---
                 isDock = !!client.dock;
             }}
             catch (e) {{}}
-            if (isDock)
+            if (!isDock)
+                return;
+            const readArea = () => {{
+                const a = this.workspace.clientArea(0, this.workspace.activeScreen,
+                    this.workspace.currentDesktop);
+                return a.y + "," + a.height;
+            }};
+            console.log("AR dock event, workArea inline = " + readArea());
+            this.setTimeout(() => {{
+                console.log("AR dock deferred, workArea = " + readArea());
                 this.control.onSurfaceUpdate(this);
+            }}, 60);
         }};
         this.connect(this.workspace.windowAdded, dockSurfaceChanged);
         this.connect(this.workspace.windowRemoved, dockSurfaceChanged);
