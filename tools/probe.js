@@ -26,7 +26,7 @@ function init() {
         return out.length ? out.join("+") : "ALL";
     }
 
-    var a = ws.clientArea(0, ws.activeScreen, ws.currentDesktop);
+    var area = ws.clientArea(0, ws.activeScreen, ws.currentDesktop);
     var full = ws.clientArea(3, ws.activeScreen, ws.currentDesktop);
     var currentName = names[ws.currentDesktop.id] || ws.currentDesktop.id;
     var act = ws.activeWindow;
@@ -34,7 +34,7 @@ function init() {
     if (act) { try { actCls = act.resourceClass; } catch (e) {} }
 
     console.warn("SNAP cur=" + currentName + " active=" + actCls
-        + " workArea=" + a.x + "," + a.y + " " + a.width + "x" + a.height
+        + " workArea=" + area.x + "," + area.y + " " + area.width + "x" + area.height
         + " fullArea=" + full.x + "," + full.y + " " + full.width + "x" + full.height
         + " screens=" + (ws.screens || []).length);
 
@@ -42,6 +42,13 @@ function init() {
     // whom, which is the whole question for border culling.
     var order = ws.stackingOrder || [];
     var lines = [];
+    function stackName(c) {
+        var cls = "", cap = "";
+        try { cls = c.resourceClass; } catch (e) {}
+        try { cap = String(c.caption); } catch (e) {}
+        if (cap === "HyprKwin overlay") return "overlay";
+        return cls || "?";
+    }
     for (var k = 0; k < order.length; k++) {
         var c = order[k], cls = "?", cap = "?", g = c.frameGeometry;
         try { cls = c.resourceClass; } catch (e) {}
@@ -61,6 +68,49 @@ function init() {
             + (cls === "plasmashell" || overlay ? "" : " min=" + (c.minSize ? c.minSize.width + "x" + c.minSize.height : "?")));
     }
     lines.forEach(function (l) { console.warn("SNAP" + l); });
+
+    // Overlap check. A tiler that has been driven into a bad state leaves
+    // windows stacked on top of each other with no error anywhere, and the
+    // only reliable cure is a restart. Catch it here instead.
+    var solid = [];
+    for (var si = 0; si < order.length; si++) {
+        var wa = order[si], capa = "";
+        try { capa = String(wa.caption); } catch (e) {}
+        // Only real application windows. The desktop background, the panel and
+        // the overlay strips all span other windows by design.
+        if (capa === "HyprKwin overlay") continue;
+        if (wa.dock || wa.desktopWindow || wa.popupWindow || wa.utility) continue;
+        try { if (wa.resourceClass === "plasmashell") continue; } catch (e) {}
+        if (wa.minimized) continue;
+        var gg = wa.frameGeometry;
+        // A small window on top of a tiled one is a normal floating dialog.
+        // The failure we care about is two *large* windows overlapping, which
+        // is what a wedged tiler leaves behind. The probe cannot read the
+        // tiler's float state, so size is the proxy.
+        if (gg.width < area.width * 0.25 && gg.height < area.height * 0.25) continue;
+        solid.push({ n: stackName(wa), g: gg });
+    }
+    var clashes = [];
+    for (var x = 0; x < solid.length; x++) {
+        for (var y = x + 1; y < solid.length; y++) {
+            var ga = solid[x].g, gb = solid[y].g;
+            var ox = Math.min(ga.x + ga.width, gb.x + gb.width) - Math.max(ga.x, gb.x);
+            var oy = Math.min(ga.y + ga.height, gb.y + gb.height) - Math.max(ga.y, gb.y);
+            // Ignore a sliver: borders and rounding produce 1-2px of overlap
+            // between neighbours that are actually fine.
+            if (ox > 4 && oy > 4) {
+                clashes.push(solid[x].n + " x " + solid[y].n
+                    + " (" + Math.round(ox) + "x" + Math.round(oy) + "px)");
+            }
+        }
+    }
+    if (clashes.length) {
+        console.warn("SNAP !! OVERLAP: " + clashes.join("  "));
+        console.warn("SNAP !! two large windows are on top of each other -- the tiler");
+        console.warn("SNAP !! is wedged. Meta+Shift+F twice, or restart the session.");
+    } else {
+        console.warn("SNAP ok: no overlap");
+    }
     console.warn("SNAP end");
 }
 init();

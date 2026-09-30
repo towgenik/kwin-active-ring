@@ -62,6 +62,17 @@ SNAP  8 overlay [overlay] @4,36 4x1036 desk=ALL
 Stack index runs bottom to top, so a later row covers an earlier one. It
 never mutates anything (enforced by `tests/probe.test.mjs`).
 
+The last line is an overlap check:
+
+```
+SNAP ok: no overlap
+```
+
+Two *large* windows sharing space means the tiler has wedged — the failure
+that otherwise shows up as "my windows look wrong" with nothing logged
+anywhere, and whose only reliable cure is a session restart. Small floating
+dialogs are ignored, since those overlapping a tile is normal.
+
 ## Keywatch
 
 Records which global shortcut KWin actually receives, so you can tell
