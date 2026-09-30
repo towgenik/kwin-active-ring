@@ -82,26 +82,41 @@ test("the block routes docks to the tiler's own re-arrange hook", { skip: !liveS
     }
 });
 
-test("the arrange is deferred exactly once, and the deferral is the whole fix", () => {
-    // windowRemoved fires while the dock is still counted in the screen's
-    // exclusive zone, so arranging inline re-reads the old work area and
-    // silently does nothing. One deferred arrange is what makes it land.
-    //
-    // The probe adds more setTimeout calls, so assert on the ones that
-    // actually arrange rather than counting them all.
+test("the arrange is a burst: immediate, fast, safety, through one funnel", () => {
+    // Measured 2026-09-30: on show the work area is already new inline at
+    // windowAdded; on hide it flips within ~2ms of windowRemoved. A single
+    // 60ms deferral holds stale windows under the panel (or a gap) for ~4
+    // frames while the animation effect replays the jump -- the flicker.
+    // So one dock event schedules three arranges: immediate (catches show),
+    // fast (catches hide right after the flip), safety (late net for a
+    // loaded system). Extra arranges are no-ops when the area is already
+    // right and never restart the animation.
     const src = readFileSync(new URL("../tools/patch-tiler-docksignal.py", import.meta.url), "utf8");
-    const arrangers = src.match(/setTimeout\(\(\) => \{[\s\S]*?onSurfaceUpdate\(this\)[\s\S]*?\}\}, \w+\);/g) || [];
-    assert.equal(arrangers.length, 1, "exactly one deferred arrange");
+    const funnels = src.match(/this\.control\.onSurfaceUpdate\(this\)/g) || [];
+    assert.equal(funnels.length, 1, "exactly one arrange site (the funnel)");
+    for (const site of ['arrangeAt("inline")', 'arrangeAt("fast")', 'arrangeAt("safety")']) {
+        assert.ok(src.includes(site), `burst must schedule ${site}`);
+    }
     assert.ok(!src.includes("setInterval"), "no repeating timer");
 });
 
-test("the deferral is tunable from kwinrc, read at event time", () => {
-    // Reading it per event means the delay can be changed with kwriteconfig6
-    // and takes effect on the next panel toggle -- no file edit, no restart.
+test("duplicate dock events in one toggle are coalesced", () => {
+    // One toggle emits two dock events in the same ms; the second burst
+    // would be pure redundancy. A human re-press is hundreds of ms later.
+    const src = readFileSync(new URL("../tools/patch-tiler-docksignal.py", import.meta.url), "utf8");
+    assert.match(src, /lastDockBurst/);
+    assert.match(src, /< 80/);
+});
+
+test("the delays are tunable from kwinrc, read at event time", () => {
+    // Reading them per event means they can be changed with kwriteconfig6
+    // and take effect on the next panel toggle -- no file edit, no restart.
     const src = readFileSync(new URL("../tools/patch-tiler-docksignal.py", import.meta.url), "utf8");
     assert.match(src, /KWIN\.readConfig\("dockRearrangeDelayMs", 60\)/);
-    // and it is clamped, so a typo cannot stall the re-tile indefinitely
+    assert.match(src, /KWIN\.readConfig\("dockRearrangeFastMs", 10\)/);
+    // ...and they are clamped, so a typo cannot stall the re-tile
     assert.match(src, /d >= 0 && d <= 2000/);
+    assert.match(src, /f >= 0 && f <= 2000/);
 });
 
 test("the settle-curve probe is opt-in", () => {
@@ -111,7 +126,7 @@ test("the settle-curve probe is opt-in", () => {
     assert.match(src, /if \(probing\) \{/);
     // ...and it only samples the work area; it must never arrange.
     const start = src.indexOf("if (probing) {");
-    const end = src.indexOf("AR dock deferred", start);
+    const end = src.indexOf("AR dock safety", start);
     assert.ok(start > -1 && end > start, "could not locate the probe block");
     const probe = src.slice(start, end);
     assert.ok(!probe.includes("onSurfaceUpdate"), "the probe must not arrange");

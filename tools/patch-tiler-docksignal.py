@@ -70,19 +70,30 @@ BINDING = f"""        // --- {MARKER} ---
         // onSurfaceUpdate, so the tiles keep their old size after the work
         // area changes.
         //
-        // Signal-driven: one dock event in, one arrange out. No polling.
+        // Signal-driven: one dock event in, arranges out. No polling.
         //
-        // The arrange is DEFERRED, and that is the whole trick. windowRemoved
-        // fires while the dock is still counted in the screen's exclusive
-        // zone, so arranging inline re-reads the *old* work area and changes
-        // nothing -- arranging straight from the handler is a silent no-op.
-        // The tiler already defers the same way for geometry settles
-        // (enforceSize, 10ms) and upstream defers client.windowShown by 50ms.
+        // The zone settles fast but asymmetrically (measured 2026-09-30,
+        // eDP-1 1920x1080, top panel 28px): on show the work area is already
+        // new inline at windowAdded; on hide it flips within ~2ms of
+        // windowRemoved. A single 60ms deferral therefore holds stale windows
+        // under the panel (show) or a gap (hide) for ~4 frames while the
+        // hyprkwinanimations effect replays the jump over 200ms -- the
+        // flicker. So this schedules a burst: immediate (catches show),
+        // fast (catches hide right after the flip), safety (late net for a
+        // loaded system). Extra arranges are no-ops when the area is already
+        // right: unchanged geometry emits no signal, so the animation does
+        // not restart.
+        //
+        // Duplicate dock events arrive in the same ms for one toggle, so a
+        // second burst inside 80ms is coalesced away; a human re-press is
+        // hundreds of ms later and is unaffected.
         //
         // Config (kwinrc, [Script-krohnkite]), read at event time so it can be
         // tuned live without editing this file or restarting KWin:
-        //   dockRearrangeDelayMs  deferral before arranging, default 60
+        //   dockRearrangeDelayMs  safety arrange, default 60
+        //   dockRearrangeFastMs   fast catch-up arrange, default 10
         //   dockRearrangeProbe    true to log when the work area settles
+        let lastDockBurst = 0;
         const dockSurfaceChanged = (client) => {{
             if (!client)
                 return;
@@ -93,6 +104,12 @@ BINDING = f"""        // --- {MARKER} ---
             catch (e) {{}}
             if (!isDock)
                 return;
+            const now = Date.now();
+            if (now - lastDockBurst < 80) {{
+                console.log("AR dock event coalesced (duplicate of the same toggle)");
+                return;
+            }}
+            lastDockBurst = now;
             const readArea = () => {{
                 const a = this.workspace.clientArea(0, this.workspace.activeScreen,
                     this.workspace.currentDesktop);
@@ -105,9 +122,22 @@ BINDING = f"""        // --- {MARKER} ---
                     delay = d;
             }}
             catch (e) {{}}
+            let fast = 10;
+            try {{
+                const f = KWIN.readConfig("dockRearrangeFastMs", 10);
+                if (typeof f === "number" && f >= 0 && f <= 2000)
+                    fast = f;
+            }}
+            catch (e) {{}}
             console.log("AR dock event, workArea inline = " + readArea()
-                + ", delay = " + delay + "ms");
-            // Opt-in: sample the settle curve so the delay is set from data
+                + ", fast = " + fast + "ms, safety = " + delay + "ms");
+            // Single funnel: every scheduled arrange goes through here, so a
+            // no-op (area already right) emits no signal and never restarts
+            // the window animation.
+            const arrangeAt = (tag) => {{
+                this.control.onSurfaceUpdate(this);
+            }};
+            // Opt-in: sample the settle curve so the delays are set from data
             // rather than guessed. Off by default; 8 timers per toggle.
             let probing = false;
             try {{
@@ -121,10 +151,14 @@ BINDING = f"""        // --- {MARKER} ---
                     }}, d);
                 }});
             }}
-            this.setTimeout(() => {{
-                console.log("AR dock deferred +" + delay + "ms, workArea = " + readArea());
-                this.control.onSurfaceUpdate(this);
-            }}, delay);
+            this.setTimeout(() => arrangeAt("inline"), 0);
+            if (fast !== 0)
+                this.setTimeout(() => arrangeAt("fast"), fast);
+            if (delay !== 0 && delay !== fast)
+                this.setTimeout(() => {{
+                    console.log("AR dock safety +" + delay + "ms, workArea = " + readArea());
+                    arrangeAt("safety");
+                }}, delay);
         }};
         this.connect(this.workspace.windowAdded, dockSurfaceChanged);
         this.connect(this.workspace.windowRemoved, dockSurfaceChanged);
