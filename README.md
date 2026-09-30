@@ -38,6 +38,30 @@ tools/ring-debug.sh watch            # follow Ring: lines
 tools/ring-debug.sh snapshot [file]  # capture journal slice
 ```
 
+## Probe
+
+Read-only snapshot of the whole picture: which window is on which desktop,
+where every window is, the work area, and the stacking order (which is what
+decides who covers whom).
+
+```bash
+tools/probe.sh            # one snapshot
+tools/probe.sh --watch    # re-snapshot every 2s
+```
+
+```
+SNAP cur=D1 active=org.kde.konsole workArea=0,28 1920x1052 fullArea=0,0 1920x1080 screens=1
+SNAP  0 plasmashell [desktop-shell,desktopWindow] @0,0 1920x1080 desk=ALL
+SNAP  1 brave-origin @8,36 1904x1036 desk=D2 min=500x150
+SNAP  2 discord @964,36 948x1036 desk=D1 min=800x500
+SNAP  3 org.kde.konsole @8,36 948x1036 desk=D1 min=150x150
+SNAP  4 plasmashell [dock] @0,0 1920x44 desk=ALL
+SNAP  8 overlay [overlay] @4,36 4x1036 desk=ALL
+```
+
+Stack index runs bottom to top, so a later row covers an earlier one. It
+never mutates anything (enforced by `tests/probe.test.mjs`).
+
 ## Testing safety
 
 While testing, HyprKwin's own borders MUST be off (`hyprkwinEnabled=false`,
