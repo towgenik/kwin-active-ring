@@ -296,25 +296,23 @@ Meta+Shift+Ctrl+<arrow>  move the window to another desktop
 to `Key_Underscore` / `Key_Plus` with no Shift bit, the dead form behind
 HyprKwin's `Meta+!` bug.
 
-### Known upstream bug: resize overlaps windows
+### Resize: not a bug, and the hotkeys were never the problem
 
-The keys fire and the tiler acts on them, but the tiler's resize does not
-reflow siblings. Its `resizeTile` delegates to `layout.adjust` with a step of
-3% of the work area, and in the layout in use the focused window grows while
-its neighbours stay put:
+The resize keys fire, and the tiler reflows siblings correctly:
 
 ```
-start   konsole @12,40  940x1028   discord @968,40  940x1028
-grow 1  konsole @12,40 1036x1028   discord @968,40  940x1028
-grow 2  konsole @12,40 1132x1028   discord @968,40  940x1028
-grow 3  konsole @12,40 1228x1028   discord @968,40  940x1028
-grow 4  konsole @12,40 1324x1028   discord @968,40  940x1028   <- 368px overlap
+before   konsole @898,544 1014x528   discord @898,8 1014x528
+Meta+Alt+Right (grow width)
+after    konsole @955,544  957x528   discord @955,8  957x528
 ```
 
-Under the Columns layout it does reflow, but moves the divider the wrong way
-— it grows the *other* window into the focused one instead. So this is an
-upstream tiler bug, not a keybinding problem, and the hotkeys are not the
-thing to fix.
+An earlier session showed a 368px overlap after four grow presses, which
+looked like `layout.adjust` failing to reflow. It was not: the tiler had been
+left in a bad state by repeated float toggles, and it also had a stale
+cached copy of its own JS. After a KWin restart the same keys reflow both
+columns and keep the layout intact. Do not debug the tiler from a session
+whose state you have been poking at — check `tools/probe.sh` for `OVERLAP`
+first.
 
 ## Testing safety
 
