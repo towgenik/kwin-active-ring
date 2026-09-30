@@ -86,12 +86,36 @@ test("the arrange is deferred exactly once, and the deferral is the whole fix", 
     // windowRemoved fires while the dock is still counted in the screen's
     // exclusive zone, so arranging inline re-reads the old work area and
     // silently does nothing. One deferred arrange is what makes it land.
-    // That is a one-shot, not a poll: exactly one setTimeout, no interval.
+    //
+    // The probe adds more setTimeout calls, so assert on the ones that
+    // actually arrange rather than counting them all.
     const src = readFileSync(new URL("../tools/patch-tiler-docksignal.py", import.meta.url), "utf8");
-    const setTimeouts = src.match(/this\.setTimeout\(/g) || [];
-    assert.equal(setTimeouts.length, 1, "exactly one deferred arrange");
-    assert.match(src, /this\.setTimeout\(\(\) => \{[\s\S]*onSurfaceUpdate\(this\)[\s\S]*\}, 60\);/);
+    const arrangers = src.match(/setTimeout\(\(\) => \{[\s\S]*?onSurfaceUpdate\(this\)[\s\S]*?\}\}, \w+\);/g) || [];
+    assert.equal(arrangers.length, 1, "exactly one deferred arrange");
     assert.ok(!src.includes("setInterval"), "no repeating timer");
+});
+
+test("the deferral is tunable from kwinrc, read at event time", () => {
+    // Reading it per event means the delay can be changed with kwriteconfig6
+    // and takes effect on the next panel toggle -- no file edit, no restart.
+    const src = readFileSync(new URL("../tools/patch-tiler-docksignal.py", import.meta.url), "utf8");
+    assert.match(src, /KWIN\.readConfig\("dockRearrangeDelayMs", 60\)/);
+    // and it is clamped, so a typo cannot stall the re-tile indefinitely
+    assert.match(src, /d >= 0 && d <= 2000/);
+});
+
+test("the settle-curve probe is opt-in", () => {
+    // It costs 8 timers per panel toggle, so it must default to off.
+    const src = readFileSync(new URL("../tools/patch-tiler-docksignal.py", import.meta.url), "utf8");
+    assert.match(src, /KWIN\.readConfig\("dockRearrangeProbe", false\)/);
+    assert.match(src, /if \(probing\) \{/);
+    // ...and it only samples the work area; it must never arrange.
+    const start = src.indexOf("if (probing) {");
+    const end = src.indexOf("AR dock deferred", start);
+    assert.ok(start > -1 && end > start, "could not locate the probe block");
+    const probe = src.slice(start, end);
+    assert.ok(!probe.includes("onSurfaceUpdate"), "the probe must not arrange");
+    assert.match(probe, /AR probe \+/, "the probe should log samples");
 });
 
 test("only docks trigger it, so opening a menu does not re-tile", { skip: !liveSrc }, () => {

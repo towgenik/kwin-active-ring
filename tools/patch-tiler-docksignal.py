@@ -78,6 +78,11 @@ BINDING = f"""        // --- {MARKER} ---
         // nothing -- arranging straight from the handler is a silent no-op.
         // The tiler already defers the same way for geometry settles
         // (enforceSize, 10ms) and upstream defers client.windowShown by 50ms.
+        //
+        // Config (kwinrc, [Script-krohnkite]), read at event time so it can be
+        // tuned live without editing this file or restarting KWin:
+        //   dockRearrangeDelayMs  deferral before arranging, default 60
+        //   dockRearrangeProbe    true to log when the work area settles
         const dockSurfaceChanged = (client) => {{
             if (!client)
                 return;
@@ -93,11 +98,33 @@ BINDING = f"""        // --- {MARKER} ---
                     this.workspace.currentDesktop);
                 return a.y + "," + a.height;
             }};
-            console.log("AR dock event, workArea inline = " + readArea());
+            let delay = 60;
+            try {{
+                const d = KWIN.readConfig("dockRearrangeDelayMs", 60);
+                if (typeof d === "number" && d >= 0 && d <= 2000)
+                    delay = d;
+            }}
+            catch (e) {{}}
+            console.log("AR dock event, workArea inline = " + readArea()
+                + ", delay = " + delay + "ms");
+            // Opt-in: sample the settle curve so the delay is set from data
+            // rather than guessed. Off by default; 8 timers per toggle.
+            let probing = false;
+            try {{
+                probing = !!KWIN.readConfig("dockRearrangeProbe", false);
+            }}
+            catch (e) {{}}
+            if (probing) {{
+                [2, 5, 10, 15, 20, 30, 45, 60].forEach((d) => {{
+                    this.setTimeout(() => {{
+                        console.log("AR probe +" + d + "ms = " + readArea());
+                    }}, d);
+                }});
+            }}
             this.setTimeout(() => {{
-                console.log("AR dock deferred, workArea = " + readArea());
+                console.log("AR dock deferred +" + delay + "ms, workArea = " + readArea());
                 this.control.onSurfaceUpdate(this);
-            }}, 60);
+            }}, delay);
         }};
         this.connect(this.workspace.windowAdded, dockSurfaceChanged);
         this.connect(this.workspace.windowRemoved, dockSurfaceChanged);

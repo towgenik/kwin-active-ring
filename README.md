@@ -166,6 +166,59 @@ AR dock deferred, workArea = 0,1080         <- the new area
 The inline read is the old area on *every* toggle, which is exactly why v1
 never moved anything.
 
+### Latency
+
+`tools/latency-probe.js` measures dock event → first tile movement, entirely
+from two signal connections (no polling, no timer, so it does not perturb
+what it measures):
+
+```bash
+LAT="lat-$RANDOM"
+qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.loadScript \
+    "$PWD/tools/latency-probe.js" "$LAT" >/dev/null
+qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.start >/dev/null
+# toggle the panel a few times
+journalctl --user -u plasma-kwin_wayland -f | grep 'LAT '
+qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.unloadScript "$LAT"
+```
+
+The two directions are not symmetric:
+
+| direction | dock event → tiles moved |
+|---|---|
+| panel hidden (`windowRemoved`) | 69–74 ms |
+| panel shown (`windowAdded`) | 11–12 ms |
+
+Hiding is dominated by the 60 ms deferral; showing is already fast, because
+the tiler's own `windowAdded` path already arranges. So the deferral only
+costs anything on the hide path, and the most it can ever save is ~50 ms.
+
+### Tuning the deferral
+
+Both keys live in `kwinrc` under `[Script-krohnkite]` and are read **at event
+time**, so they take effect on the next panel toggle — no file edit, no
+restart:
+
+```bash
+# how long to wait before arranging (default 60)
+kwriteconfig6 --file kwinrc --group Script-krohnkite --key dockRearrangeDelayMs 25
+
+# log when the work area actually settles, so the delay is set from data
+kwriteconfig6 --file kwinrc --group Script-krohnkite --key dockRearrangeProbe true
+journalctl --user -u plasma-kwin_wayland -f | grep 'AR probe'
+```
+
+The probe costs 8 timers per toggle, so it defaults to off. With it on:
+
+```
+AR probe +2ms  = 28,1052      <- still the old area
+AR probe +5ms  = 28,1052
+AR probe +10ms = 28,1052
+AR probe +15ms = 0,1080       <- settled from here on
+```
+
+Pick the delay from that curve, then turn the probe back off.
+
 ### The alternative: make the work area stop changing
 
 Read from upstream sources, there is a config-only answer that removes the
