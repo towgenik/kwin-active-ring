@@ -148,6 +148,24 @@ AR dock deferred, workArea = 0,1080
 journalctl --user -u plasma-kwin_wayland -f | grep 'AR dock'
 ```
 
+Verified working in both directions, no restart loop, one event in and one
+arrange out:
+
+```
+panel shown    workArea 0,28 1920x1052   konsole @8,36  948x1036   discord @964,558 948x514
+panel hidden   workArea 0,0  1920x1080   konsole @8,8   948x1064   discord @964,544 948x528
+```
+
+and the log showing why the deferral is required:
+
+```
+AR dock event,   workArea inline = 28,1052   <- always the old area
+AR dock deferred, workArea = 0,1080         <- the new area
+```
+
+The inline read is the old area on *every* toggle, which is exactly why v1
+never moved anything.
+
 ### The alternative: make the work area stop changing
 
 Read from upstream sources, there is a config-only answer that removes the
